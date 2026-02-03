@@ -4,63 +4,63 @@ This project uses Quarkus, the Supersonic Subatomic Java Framework.
 
 If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
 
+## Configuring JBoss EAP 6.4.0
+
+You will need to first configure this shell to run a supported Java version for EAP 6.4.0.
+
+```shell script
+sdk install java 8.0.482.fx-librca
+sdk use java 8.0.482.fx-librca
+java -version
+```
+
+This should return Java 1.8
+
+Now install EAP, setup a user for quarkus and start the server
+
+```shell script
+cp ~/Downloads/jboss-eap-6.4.0.zip .
+unzip jboss-eap-6.4.0.zip
+./jboss-eap-6.4/bin/add-user.sh -a -u 'quarkus' -p 'Password123!' -g 'guest'
+./jboss-eap-6.4/bin/standalone.sh -c standalone-full.xml
+```
+Now in yet another shell window, again switch to Java 1.8.x, and setup a jms-queue for us to use
+
+```shell script
+sdk use java 8.0.482.fx-librca
+java -version
+./jboss-eap-6.4/bin/jboss-cli.sh --connect --command="jms-queue add --queue-address=ExampleQueue --entries=java:/jboss/exported/jms/queue/ExampleQueue"
+```
+
 ## Running the application in dev mode
 
 You can run your application in dev mode that enables live coding using:
 
 ```shell script
-./mvnw compile quarkus:dev
+./mvnw  quarkus:dev -Dquarkus.http.port=8180 -Ddebug=5105
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+## Testing Quarkus
 
-## Packaging and running the application
-
-The application can be packaged using:
+Now use curl to test the Quarkus endpoint
 
 ```shell script
-./mvnw package
+curl "http://localhost:8180/jms/send?msg=HelloHornetQ"
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+You should see something like this returned `Successfully sent: HelloHornetQ` and `<<< Received: HelloHornetQ` in the Quarkus logs
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
+## Testing HornetQ
 
 ```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
+./jboss-eap-6.4/bin/jboss-cli.sh --connect --command="jms-queue pause --queue-address=ExampleQueue"
+./jboss-eap-6.4/bin/jboss-cli.sh --connect --command="jms-queue count-messages --queue-address=ExampleQueue"
 ```
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
-
-## Creating a native executable
-
-You can create a native executable using:
+Send a few messages via the prior `curl` command
 
 ```shell script
-./mvnw package -Dnative
+./jboss-eap-6.4/bin/jboss-cli.sh --connect --command="jms-queue count-messages --queue-address=ExampleQueue"
+./jboss-eap-6.4/bin/jboss-cli.sh --connect --command="jms-queue resume --queue-address=ExampleQueue"
+./jboss-eap-6.4/bin/jboss-cli.sh --connect --command="jms-queue count-messages --queue-address=ExampleQueue"
 ```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./target/quarkus-hornetq-client-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Related Guides
-
-- Artemis JMS ([guide](https://docs.quarkiverse.io/quarkus-artemis/dev/index.html)): Use JMS APIs to connect to ActiveMQ Artemis via its native protocol
-
-## Provided Code
-
-### RESTEasy JAX-RS
-
-Easily start your RESTful Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started#the-jax-rs-resources)
